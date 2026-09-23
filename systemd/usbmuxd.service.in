@@ -4,4 +4,3 @@ Documentation=man:usbmuxd(8)
 
 [Service]
 ExecStart=@sbindir@/usbmuxd --user usbmux --systemd
-PIDFile=@localstatedir@/run/usbmuxd.pid

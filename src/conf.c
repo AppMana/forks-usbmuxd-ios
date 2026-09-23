@@ -34,11 +34,13 @@
 #include <libgen.h>
 #include <sys/stat.h>
 #include <errno.h>
+#include <ctype.h>
 
 #ifdef WIN32
 #include <shlobj.h>
 #endif
 
+#include <plist/plist.h>
 #include "conf.h"
 #include "utils.h"
 #include "log.h"
@@ -230,7 +232,7 @@ static int internal_set_value(const char *config_file, const char *key, plist_t 
 	/* read file into plist */
 	plist_t config = NULL;
 
-	plist_read_from_filename(&config, config_file);
+	plist_read_from_file(config_file, &config, NULL);
 	if (!config) {
 		config = plist_new_dict();
 		plist_dict_set_item(config, key, value);
@@ -254,7 +256,7 @@ static int internal_set_value(const char *config_file, const char *key, plist_t 
 		usbmuxd_log(LL_DEBUG, "Setting key %s in config file %s", key, config_file);
 	}
 
-	int res = plist_write_to_filename(config, config_file, PLIST_FORMAT_XML);
+	int res = (plist_write_to_file(config, config_file, PLIST_FORMAT_XML, 0) == PLIST_ERR_SUCCESS);
 
 	plist_free(config);
 
@@ -274,7 +276,7 @@ static int config_set_value(const char *key, plist_t value)
 
 	int result = internal_set_value(config_file, key, value);
 	if (!result) {
-		usbmuxd_log(LL_ERROR, "ERROR: Failed to write to '%s': %s", config_file, strerror(errno));
+		usbmuxd_log(LL_ERROR, "ERROR: Failed to write to '%s'", config_file);
 	}
 
 	free(config_file);
@@ -288,7 +290,7 @@ static int internal_get_value(const char* config_file, const char *key, plist_t 
 
 	/* now parse file to get the SystemBUID */
 	plist_t config = NULL;
-	if (plist_read_from_filename(&config, config_file)) {
+	if (plist_read_from_file(config_file, &config, NULL) == PLIST_ERR_SUCCESS) {
 		usbmuxd_log(LL_DEBUG, "Reading key %s from config file %s", key, config_file);
 		plist_t n = plist_dict_get_item(config, key);
 		if (n) {
@@ -405,12 +407,18 @@ int config_set_device_record(const char *udid, char* record_data, uint64_t recor
 	if (!udid || !record_data || record_size < 8)
 		return -EINVAL;
 
-	plist_t plist = NULL;
-	if (memcmp(record_data, "bplist00", 8) == 0) {
-		plist_from_bin(record_data, record_size, &plist);
-	} else {
-		plist_from_xml(record_data, record_size, &plist);
+	/* verify udid input */
+	const char* u = udid;
+	while (*u != '\0') {
+		if (!isalnum(*u) && (*u != '-')) {
+			usbmuxd_log(LL_ERROR, "ERROR: %s: udid contains invalid character.\n", __func__);
+			return -EINVAL;
+		}
+		u++;
 	}
+
+	plist_t plist = NULL;
+	plist_from_memory(record_data, record_size, &plist, NULL);
 
 	if (!plist || plist_get_node_type(plist) != PLIST_DICT) {
 		if (plist)
@@ -428,7 +436,7 @@ int config_set_device_record(const char *udid, char* record_data, uint64_t recor
 	remove(device_record_file);
 
 	/* store file */
-	if (!plist_write_to_filename(plist, device_record_file, PLIST_FORMAT_XML)) {
+	if (!plist_write_to_file(plist, device_record_file, PLIST_FORMAT_XML, 0)) {
 		usbmuxd_log(LL_DEBUG, "Could not open '%s' for writing: %s", device_record_file, strerror(errno));
 		res = -ENOENT;
 	}

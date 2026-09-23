@@ -20,6 +20,7 @@
 
 #define _DEFAULT_SOURCE
 #define _BSD_SOURCE
+#define __FAVOR_BSD
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
