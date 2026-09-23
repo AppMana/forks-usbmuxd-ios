@@ -1,8 +1,14 @@
 AUTOMAKE_OPTIONS = foreign
 ACLOCAL_AMFLAGS = -I m4
+check-local:
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DHAVE_CLOCK_GETTIME -ffunction-sections -fdata-sections -I$(srcdir)/src $(srcdir)/tests/abort-connect.c $(srcdir)/src/utils.c $(LDFLAGS) -Wl,--gc-sections -pthread -o test-abort-connect
+	./test-abort-connect
+
+CLEANFILES = test-abort-connect
 SUBDIRS = src $(UDEV_SUB) $(SYSTEMD_SUB) docs
 
 EXTRA_DIST = \
+	tests/abort-connect.c \
 	docs \
 	COPYING.GPLv2 \
 	COPYING.GPLv3 \

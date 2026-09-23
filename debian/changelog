@@ -1,3 +1,11 @@
+usbmuxd (1.1.1-5~exp3ubuntu2.1+appmana2) noble; urgency=medium
+
+  * Backport upstream 63d1164 to prevent reentrant client close during abort.
+  * Run abort-connect teardown regression during make check.
+  * Restart after daemon failure without changing normal idle exit behavior.
+
+ -- AppMana Development <dev@appmana.com>  Mon, 21 Sep 2026 10:15:00 -0700
+
 usbmuxd (1.1.1-5~exp3ubuntu2.1) noble-security; urgency=medium
 
   * SECURITY UPDATE: priv escalation via path traversal issue

@@ -1,0 +1,23 @@
+From 63d1164e736d7419198d1b737d10a9aae85bef98 Mon Sep 17 00:00:00 2001
+From: Nikias Bassen <nikias@gmx.li>
+Date: Wed, 5 Aug 2020 00:05:27 +0200
+Subject: [PATCH] device: Prevent calling client_close() from
+ connection_teardown() when called from device_abort_connect()
+
+... which itself is only called from within client_close()
+---
+ src/device.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/device.c b/src/device.c
+index 0b72c62d..aac40b1f 100644
+--- a/src/device.c
++++ b/src/device.c
+@@ -549,6 +549,7 @@ void device_abort_connect(int device_id, struct mux_client *client)
+ {
+ 	struct mux_connection *conn = get_mux_connection(device_id, client);
+ 	if (conn) {
++		conn->client = NULL;
+ 		connection_teardown(conn);
+ 	} else {
+ 		usbmuxd_log(LL_WARNING, "Attempted to abort for nonexistent connection for device %d", device_id);

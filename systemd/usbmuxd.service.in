@@ -4,3 +4,5 @@ Documentation=man:usbmuxd(8)
 
 [Service]
 ExecStart=@sbindir@/usbmuxd --user usbmux --systemd
+Restart=on-failure
+RestartSec=2s

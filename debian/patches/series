@@ -3,3 +3,4 @@ Fix-FTBFS-in-kfreebsd.patch
 0003-Port-to-libplist-2.3.0.patch
 0004-conf-Fix-false-plist-read-write-errors-caused-by-usi.patch
 CVE-2025-66004.patch
+0005-prevent-reentrant-client-close.patch
