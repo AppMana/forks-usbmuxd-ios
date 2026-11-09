@@ -4,3 +4,4 @@ Fix-FTBFS-in-kfreebsd.patch
 0004-conf-Fix-false-plist-read-write-errors-caused-by-usi.patch
 CVE-2025-66004.patch
 0005-prevent-reentrant-client-close.patch
+0006-prevent-usb-disconnect-busy-wait-hang.patch

@@ -1,3 +1,14 @@
+usbmuxd (1.1.1-5~exp3ubuntu2.1+appmana3) noble; urgency=medium
+
+  * Reap RX transfers when resubmit fails on disconnect instead of leaving
+    unsubmitted transfers in rx_xfers.
+  * Free transfers immediately when libusb_cancel_transfer fails during
+    usb_disconnect and bound the callback wait loop so teardown cannot spin
+    indefinitely with SIGTERM masked.
+  * Add usb-disconnect teardown regression to make check.
+
+ -- AppMana Development <dev@appmana.com>  Mon, 09 Nov 2026 12:47:53 -0800
+
 usbmuxd (1.1.1-5~exp3ubuntu2.1+appmana2) noble; urgency=medium
 
   * Backport upstream 63d1164 to prevent reentrant client close during abort.

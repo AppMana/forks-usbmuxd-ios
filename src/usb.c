@@ -81,19 +81,32 @@ static void usb_disconnect(struct usb_device *dev)
 	// get called before we free the device
 	FOREACH(struct libusb_transfer *xfer, &dev->rx_xfers) {
 		usbmuxd_log(LL_DEBUG, "usb_disconnect: cancelling RX xfer %p", xfer);
-		libusb_cancel_transfer(xfer);
+		if(libusb_cancel_transfer(xfer) < 0) {
+			free(xfer->buffer);
+			collection_remove(&dev->rx_xfers, xfer);
+			libusb_free_transfer(xfer);
+		}
 	} ENDFOREACH
 
 	FOREACH(struct libusb_transfer *xfer, &dev->tx_xfers) {
 		usbmuxd_log(LL_DEBUG, "usb_disconnect: cancelling TX xfer %p", xfer);
-		libusb_cancel_transfer(xfer);
+		if(libusb_cancel_transfer(xfer) < 0) {
+			free(xfer->buffer);
+			collection_remove(&dev->tx_xfers, xfer);
+			libusb_free_transfer(xfer);
+		}
 	} ENDFOREACH
 
-	// Busy-wait until all xfers are closed
+	// Busy-wait until all xfers are closed, bounded so stalled teardown cannot hang forever
+	int reap_attempts = 0;
 	while(collection_count(&dev->rx_xfers) || collection_count(&dev->tx_xfers)) {
 		struct timeval tv;
 		int res;
 
+		if(++reap_attempts > 2000) {
+			usbmuxd_log(LL_WARNING, "usb_disconnect: timed out waiting for transfer callbacks on %d-%d", dev->bus, dev->address);
+			break;
+		}
 		tv.tv_sec = 0;
 		tv.tv_usec = 1000;
 		if((res = libusb_handle_events_timeout(NULL, &tv)) < 0) {
@@ -182,6 +195,7 @@ int usb_send(struct usb_device *dev, const unsigned char *buf, int length)
 		libusb_fill_bulk_transfer(xfer, dev->dev, dev->ep_out, buffer, 0, tx_callback, dev, 0);
 		if((res = libusb_submit_transfer(xfer)) < 0) {
 			usbmuxd_log(LL_ERROR, "Failed to submit TX ZLP transfer to device %d-%d: %s", dev->bus, dev->address, libusb_error_name(res));
+			free(buffer);
 			libusb_free_transfer(xfer);
 			return res;
 		}
@@ -195,11 +209,18 @@ int usb_send(struct usb_device *dev, const unsigned char *buf, int length)
 // doing a kind of read-callback loop
 static void rx_callback(struct libusb_transfer *xfer)
 {
+	int res;
 	struct usb_device *dev = xfer->user_data;
 	usbmuxd_log(LL_SPEW, "RX callback dev %d-%d len %d status %d", dev->bus, dev->address, xfer->actual_length, xfer->status);
 	if(xfer->status == LIBUSB_TRANSFER_COMPLETED) {
 		device_data_input(dev, xfer->buffer, xfer->actual_length);
-		libusb_submit_transfer(xfer);
+		if((res = libusb_submit_transfer(xfer)) != 0) {
+			usbmuxd_log(LL_ERROR, "Failed to resubmit RX transfer to device %d-%d: %s", dev->bus, dev->address, libusb_error_name(res));
+			free(xfer->buffer);
+			collection_remove(&dev->rx_xfers, xfer);
+			libusb_free_transfer(xfer);
+			dev->alive = 0;
+		}
 	} else {
 		switch(xfer->status) {
 			case LIBUSB_TRANSFER_COMPLETED: //shut up compiler
@@ -249,6 +270,7 @@ static int start_rx_loop(struct usb_device *dev)
 	libusb_fill_bulk_transfer(xfer, dev->dev, dev->ep_in, buf, USB_MRU, rx_callback, dev, 0);
 	if((res = libusb_submit_transfer(xfer)) != 0) {
 		usbmuxd_log(LL_ERROR, "Failed to submit RX transfer to device %d-%d: %s", dev->bus, dev->address, libusb_error_name(res));
+		free(buf);
 		libusb_free_transfer(xfer);
 		return res;
 	}
